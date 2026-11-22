@@ -1,0 +1,31 @@
+{
+  "instruments": [
+    {"instrument_id": "OLD-A", "label": "旧表 A", "unit": "bar"},
+    {"instrument_id": "NEW-B", "label": "换装表 B", "unit": "bar"}
+  ],
+  "revisions": [
+    {
+      "key": "old",
+      "instrument": "OLD-A",
+      "evidence": {"source": "计量班 A-01", "records": {"zero": "零点读数加 1 bar", "gain": "台架读数经二倍转换"}},
+      "stages": [
+        {"name": "偏置", "map": [1, 1, 0, 1], "range": [0, 2], "evidence": "zero"},
+        {"name": "增益", "map": [2, 0, 0, 1], "range": [1, 3], "evidence": "gain"}
+      ]
+    },
+    {
+      "key": "replacement",
+      "instrument": "NEW-B",
+      "evidence": {"source": "计量班 B-01", "records": {"bench": "两端读数为 3 和 7 bar"}},
+      "stages": [{"name": "初版换算", "map": [2, 3, 0, 1], "range": [0, 2], "evidence": "bench"}]
+    },
+    {
+      "key": "correction",
+      "instrument": "NEW-B",
+      "supersedes": "replacement",
+      "evidence": {"source": "计量班 B-02 勘误", "records": {"bench": "勘误后两端读数为 4 和 8 bar"}},
+      "stages": [{"name": "勘误换算", "map": [2, 4, 0, 1], "range": [0, 2], "evidence": "bench"}]
+    }
+  ],
+  "comparison": {"lower": "0", "upper": "2", "tolerance": "1"}
+}
