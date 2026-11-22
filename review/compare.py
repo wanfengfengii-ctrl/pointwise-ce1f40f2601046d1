@@ -13,21 +13,20 @@ from review.partition import DecisionInterval, DecisionPartition, assemble_parti
 from review.requests import ComparisonRequest, InvalidComparisonRequest, validate_request
 
 
-def _coverage_span(body: CalibrationBody) -> SupportInterval:
-    first, last = body.support[0], body.support[-1]
-    return SupportInterval(first.lower, last.upper, first.lower_closed, last.upper_closed)
-
-
-def _covers(span: SupportInterval, point: Endpoint) -> bool:
-    if span.lower is not None:
-        order = compare_endpoints(point, span.lower)
-        if order < 0 or (order == 0 and not span.lower_closed):
+def _covers(interval: SupportInterval, point: Endpoint) -> bool:
+    if interval.lower is not None:
+        order = compare_endpoints(point, interval.lower)
+        if order < 0 or (order == 0 and not interval.lower_closed):
             return False
-    if span.upper is not None:
-        order = compare_endpoints(point, span.upper)
-        if order > 0 or (order == 0 and not span.upper_closed):
+    if interval.upper is not None:
+        order = compare_endpoints(point, interval.upper)
+        if order > 0 or (order == 0 and not interval.upper_closed):
             return False
     return True
+
+
+def _supported(body: CalibrationBody, point: Endpoint) -> bool:
+    return any(_covers(interval, point) for interval in body.support)
 
 
 def evaluate_window(request: ComparisonRequest, left: CalibrationBody,
@@ -36,10 +35,10 @@ def evaluate_window(request: ComparisonRequest, left: CalibrationBody,
     if left_map is None or right_map is None:
         return DecisionPartition((), (), (DecisionInterval(request.lower, request.upper),))
 
-    left_span, right_span = _coverage_span(left), _coverage_span(right)
     predicate = build_difference(left_map, right_map, request.tolerance)
     cuts = {request.lower, request.upper}
-    candidates = (left_span.lower, left_span.upper, right_span.lower, right_span.upper,
+    candidates = (*(endpoint for interval in (*left.support, *right.support)
+                    for endpoint in (interval.lower, interval.upper)),
                   *difference_cuts(predicate))
     for point in candidates:
         if point is not None and compare_endpoints(request.lower, point) <= 0 and compare_endpoints(point, request.upper) <= 0:
@@ -47,7 +46,7 @@ def evaluate_window(request: ComparisonRequest, left: CalibrationBody,
     ordered = sorted(cuts, key=cmp_to_key(compare_endpoints))
 
     def classify(point: Endpoint) -> str:
-        if not (_covers(left_span, point) and _covers(right_span, point)):
+        if not (_supported(left, point) and _supported(right, point)):
             return "no_common_evidence"
         if polynomial_sign(predicate.denominator, point) == 0:
             return "no_common_evidence"
